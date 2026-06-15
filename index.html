@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Normal Distribution Plotter</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #ffffff;
+    --bg2: #f7f7f5;
+    --bg3: #f0eeea;
+    --text: #1a1a18;
+    --text2: #6b6b66;
+    --text3: #9b9b96;
+    --border: rgba(0,0,0,0.12);
+    --border2: rgba(0,0,0,0.22);
+    --accent: #378ADD;
+    --accent-dark: #185FA5;
+    --danger-bg: #FCEBEB;
+    --danger: #A32D2D;
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1a;
+      --bg2: #252523;
+      --bg3: #2e2e2b;
+      --text: #f0eeea;
+      --text2: #a0a09a;
+      --text3: #6b6b66;
+      --border: rgba(255,255,255,0.12);
+      --border2: rgba(255,255,255,0.22);
+      --danger-bg: #3a1a1a;
+      --danger: #f09595;
+    }
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg3);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+  }
+
+  h1 {
+    font-size: 22px;
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+  }
+
+  .subtitle {
+    font-size: 14px;
+    color: var(--text2);
+    margin-bottom: 1.75rem;
+  }
+
+  .datasets {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 1rem;
+  }
+
+  .ds-row {
+    background: var(--bg);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 12px 14px;
+    transition: box-shadow 0.15s;
+  }
+
+  .ds-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .ds-header input[type=checkbox] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .ds-name-input {
+    border: none;
+    background: transparent;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    flex: 1;
+    outline: none;
+    padding: 3px 6px;
+    border-radius: 4px;
+    min-width: 0;
+  }
+  .ds-name-input:focus {
+    background: var(--bg2);
+  }
+
+  .color-wrap {
+    position: relative;
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+  }
+  .color-swatch {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    border: 0.5px solid var(--border2);
+    cursor: pointer;
+    display: block;
+  }
+  .color-wrap input[type=color] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+
+  .expand-btn {
+    background: none;
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    color: var(--text2);
+    font-size: 12px;
+    padding: 4px 10px;
+    white-space: nowrap;
+  }
+  .expand-btn:hover { background: var(--bg2); }
+
+  .del-btn {
+    background: none;
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    color: var(--text2);
+    font-size: 12px;
+    padding: 4px 10px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+  }
+  .del-btn:hover { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
+
+  .reorder-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    flex-shrink: 0;
+  }
+  .reorder-btn {
+    background: none;
+    border: 0.5px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--text3);
+    font-size: 10px;
+    padding: 1px 5px;
+    line-height: 1.4;
+  }
+  .reorder-btn:hover { background: var(--bg2); color: var(--text); }
+  .reorder-btn:disabled { opacity: 0.25; cursor: default; }
+
+  .undo-redo-bar {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+  .ur-btn {
+    background: none;
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    color: var(--text2);
+    font-size: 12px;
+    padding: 5px 10px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .ur-btn:hover { background: var(--bg2); }
+  .ur-btn:disabled { opacity: 0.3; cursor: default; }
+
+  .sub-datasets {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 0.5px solid var(--border);
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .sub-datasets.open { display: flex; }
+
+  .sub-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 10px;
+    background: var(--bg2);
+    border-radius: var(--radius);
+    border: 0.5px solid var(--border);
+  }
+
+  .sub-check {
+    margin-top: 2px;
+    width: 15px;
+    height: 15px;
+    accent-color: var(--accent);
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+
+  .sub-info { flex: 1; min-width: 0; }
+
+  .sub-label {
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 3px;
+  }
+
+  .sub-label-input {
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    outline: none;
+    padding: 2px 5px;
+    border-radius: 4px;
+    margin-bottom: 3px;
+    display: block;
+    width: 100%;
+  }
+  .sub-label-input:hover { background: var(--bg3); }
+  .sub-label-input:focus { background: var(--bg); border: 0.5px solid var(--border2); }
+
+  .sub-preview {
+    font-size: 11px;
+    color: var(--text3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 5px;
+  }
+
+  .sub-textarea {
+    width: 100%;
+    font-size: 11px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 0.5px solid var(--border2);
+    background: var(--bg);
+    color: var(--text);
+    resize: vertical;
+    min-height: 54px;
+    line-height: 1.5;
+  }
+  .sub-textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .sub-del-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text3);
+    font-size: 16px;
+    padding: 2px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .sub-del-btn:hover { color: var(--danger); }
+
+  .add-sub-btn {
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: var(--radius);
+    border: 0.5px dashed var(--border2);
+    background: none;
+    color: var(--text2);
+    cursor: pointer;
+    align-self: flex-start;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .add-sub-btn:hover { background: var(--bg3); }
+
+  .actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 1.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .add-btn {
+    padding: 8px 18px;
+    border-radius: var(--radius);
+    border: 0.5px solid var(--border2);
+    background: var(--bg);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .add-btn:hover { background: var(--bg2); }
+
+  .run-btn {
+    margin-left: auto;
+    padding: 10px 32px;
+    border-radius: var(--radius);
+    background: var(--accent);
+    border: none;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .run-btn:hover { background: var(--accent-dark); }
+  .run-btn:active { transform: scale(0.98); }
+
+  .chart-card {
+    background: var(--bg);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    margin-top: 0.5rem;
+  }
+
+  .chart-card-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text2);
+    margin-bottom: 1rem;
+  }
+
+  #chartWrap {
+    position: relative;
+    width: 100%;
+    height: 360px;
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 0.5px solid var(--border);
+  }
+
+  .leg-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text2);
+  }
+
+  .leg-swatch {
+    width: 22px;
+    height: 3px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .msg-card {
+    background: var(--bg);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 2.5rem;
+    text-align: center;
+    color: var(--text2);
+    font-size: 14px;
+  }
+
+  .save-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 1.25rem;
+    font-size: 12px;
+    color: var(--text3);
+  }
+  .save-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #1D9E75;
+    flex-shrink: 0;
+  }
+  .reset-link {
+    font-size: 12px;
+    color: var(--text3);
+    cursor: pointer;
+    background: none;
+    border: none;
+    text-decoration: underline;
+    padding: 0;
+  }
+  .reset-link:hover { color: var(--danger); }
+
+  .io-btn {
+    padding: 5px 12px;
+    border-radius: var(--radius);
+    border: 0.5px solid var(--border);
+    background: var(--bg);
+    color: var(--text2);
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .io-btn:hover { background: var(--bg2); color: var(--text); }
+    border: none;
+    text-decoration: underline;
+    padding: 0;
+  }
+  .reset-link:hover { color: var(--danger); }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Normal distribution plotter</h1>
+  <p class="subtitle">Add datasets, select sub-datasets, then press RUN to plot.</p>
+
+  <div class="save-bar">
+    <div class="save-dot" id="saveDot"></div>
+    <span id="saveStatus">Loading…</span>
+    <button class="io-btn" onclick="exportData()" title="Export all data as JSON file">
+      <i class="ti ti-download"></i> Export
+    </button>
+    <button class="io-btn" onclick="document.getElementById('importInput').click()" title="Import data from JSON file">
+      <i class="ti ti-upload"></i> Import
+    </button>
+    <input type="file" id="importInput" accept=".json" style="display:none" onchange="importData(this)">
+    <button class="reset-link" onclick="resetToDefaults()">Reset to defaults</button>
+  </div>
+
+  <div class="datasets" id="datasetList"></div>
+
+  <div class="actions">
+    <div class="undo-redo-bar">
+      <button class="ur-btn" id="undoBtn" onclick="undo()" disabled title="Undo (Ctrl+Z)">
+        <i class="ti ti-arrow-back-up"></i> Undo
+      </button>
+      <button class="ur-btn" id="redoBtn" onclick="redo()" disabled title="Redo (Ctrl+Y)">
+        <i class="ti ti-arrow-forward-up"></i> Redo
+      </button>
+    </div>
+    <button class="add-btn" onclick="addDataset()">
+      <i class="ti ti-plus"></i> Add dataset
+    </button>
+    <button class="run-btn" onclick="runChart()">
+      <i class="ti ti-player-play"></i> RUN
+    </button>
+  </div>
+
+  <div id="chartCard" class="chart-card" style="display:none">
+    <div class="chart-card-title">Normal distributions — Abnormal index</div>
+    <div id="chartWrap"><canvas id="mainChart" role="img" aria-label="Normal distribution curves"></canvas></div>
+    <div class="legend" id="legend"></div>
+  </div>
+  <div id="emptyCard" class="msg-card" style="display:none">
+    No data selected. Check at least one sub-dataset and press RUN.
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const SUB_LABELS = ['BXL','BL','BM','BS'];
+const DEFAULT_COLORS = ['#378ADD','#E24B4A','#1D9E75','#BA7517','#7F77DD','#D4537E','#888780','#D85A30'];
+
+const PRESET = {
+  'C0': {
+    color: '#378ADD',
+    subs: [
+      { label:'BXL', checked:true,  data:'0.0103759635,0.009687692,0.018625107,0.0069621378,0.007203683,0.009602562,0.029982151,0.0488857,0.019324778,0.035783995,0.007555334,0.004832707,0.005453819,0.00566243,0.012200417,0.00741565,0.025431134,0.011898892,0.01570916,0.007389342,0.009767628,0.008288512,0.008411462,0.0050691958,0.02107263,0.005575531,0.006521639,0.006946997,0.2014395,0.17000343,0.010848889,0.009486442,0.005916288,0.0087146,0.006301171,0.016255163,0.01112758,0.012722671,0.013278068,0.0065292753,0.004991702,0.0057713403,0.006321125,0.006153518,0.0068258615,0.011098727,0.01714415,0.006454259,0.010451188,0.016999388,0.021851527,0.019499531,0.029150207,0.00983077,0.009457142,0.03508965,0.04590107,0.05461419,0.07414554,0.01798471' },
+      { label:'BL',  checked:false, data:'' },
+      { label:'BM',  checked:false, data:'' },
+      { label:'BS',  checked:false, data:'' }
+    ]
+  },
+  'C2(60°)': {
+    color: '#E24B4A',
+    subs: [
+      { label:'BXL', checked:true,  data:'0.08547399,0.15549405,0.15976298,0.07652863,0.11753833,0.15954459,0.15387858,0.12505153,0.13465062,0.12994309,0.123318695,0.12975837,0.108425446,0.0834804,0.14445998,0.1507761,0.12758923,0.12811312,0.19741037,0.19379301,0.1508905,0.15896758,0.07020798,0.14090145,0.16508052,0.08593895,0.15935552,0.15498228,0.098261274,0.153605,0.14847344,0.1420074,0.06211329,0.13717055,0.13590921,0.15010945,0.15604952,0.13119668,0.1514285,0.10678764,0.13078973,0.16145875,0.10904256,0.14175478,0.04640746,0.15555404,0.1374591,0.14400321,0.102803335,0.14821246' },
+      { label:'BL',  checked:false, data:'' },
+      { label:'BM',  checked:false, data:'' },
+      { label:'BS',  checked:false, data:'' }
+    ]
+  },
+  'C4(60°)': {
+    color: '#1D9E75',
+    subs: [
+      { label:'BXL', checked:true,  data:'0.09971621,0.12408202,0.084250666,0.13293746,0.10820512,0.09463578,0.11546882,0.13588636,0.14430289,0.12946752,0.11450605,0.1619169,0.13294882,0.108713284,0.13976966,0.13505495,0.14779842,0.13447854,0.12558182,0.12832646,0.0546708,0.12583727,0.13308476,0.043511916,0.07368584,0.14304115,0.055324417,0.047315884,0.030821335,0.034980103,0.15512583,0.14182197,0.034832396,0.14031559,0.13768624,0.06761864,0.13837552,0.035367545,0.036848564,0.13876429,0.12738538,0.06230932,0.03405342,0.1355661,0.15188332,0.15363033,0.0360212,0.035361893,0.03550569,0.1288144' },
+      { label:'BL',  checked:false, data:'' },
+      { label:'BM',  checked:false, data:'' },
+      { label:'BS',  checked:false, data:'' }
+    ]
+  },
+  'C8(60°)': {
+    color: '#7F77DD',
+    subs: [
+      { label:'BXL', checked:true,  data:'0.20974107,0.18983777,0.23246346,0.25672814,0.26545036,0.21489008,0.21729897,0.19419779,0.20907478,0.20221551,0.20561266,0.21922985,0.21360965,0.21790048,0.20985809,0.22080827,0.21278863,0.2139607,0.21615647,0.21221119,0.22208095,0.2166368,0.21587496,0.20064847,0.21461298,0.2197682,0.22385272,0.21167138,0.20849718,0.20421825,0.21798764,0.22505715,0.21679531,0.20204304,0.2442037,0.2550038,0.23394941,0.2296439,0.20059283,0.23589066,0.20510583,0.20644496,0.22752678,0.22315715,0.22571948,0.23869124,0.24021545,0.22438157,0.2090502,0.21892771' },
+      { label:'BL',  checked:false, data:'' },
+      { label:'BM',  checked:false, data:'' },
+      { label:'BS',  checked:false, data:'' }
+    ]
+  }
+};
+
+const STORAGE_KEY = 'ndp_save';
+let datasets = [];
+let idCounter = 0;
+let chartInstance = null;
+let saveTimer = null;
+
+// Undo/redo history
+let history = [];
+let historyIndex = -1;
+const MAX_HISTORY = 50;
+
+function snapshot() {
+  const state = JSON.stringify({ datasets, idCounter });
+  // drop any redo future
+  history = history.slice(0, historyIndex + 1);
+  history.push(state);
+  if (history.length > MAX_HISTORY) history.shift();
+  historyIndex = history.length - 1;
+  updateUndoRedo();
+}
+
+function updateUndoRedo() {
+  const u = document.getElementById('undoBtn');
+  const r = document.getElementById('redoBtn');
+  if (u) u.disabled = historyIndex <= 0;
+  if (r) r.disabled = historyIndex >= history.length - 1;
+}
+
+function undo() {
+  if (historyIndex <= 0) return;
+  historyIndex--;
+  const state = JSON.parse(history[historyIndex]);
+  datasets = state.datasets;
+  idCounter = state.idCounter;
+  render();
+  scheduleSave();
+  updateUndoRedo();
+}
+
+function redo() {
+  if (historyIndex >= history.length - 1) return;
+  historyIndex++;
+  const state = JSON.parse(history[historyIndex]);
+  datasets = state.datasets;
+  idCounter = state.idCounter;
+  render();
+  scheduleSave();
+  updateUndoRedo();
+}
+
+function moveDs(id, dir) {
+  snapshot();
+  const idx = datasets.findIndex(d => d.id === id);
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= datasets.length) return;
+  const tmp = datasets[idx];
+  datasets[idx] = datasets[newIdx];
+  datasets[newIdx] = tmp;
+  render();
+  scheduleSave();
+}
+
+function saveToStorage() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ datasets, idCounter }));
+    const dot = document.getElementById('saveDot');
+    const status = document.getElementById('saveStatus');
+    if (dot && status) {
+      dot.style.background = '#1D9E75';
+      status.textContent = 'Saved · ' + new Date().toLocaleTimeString();
+    }
+  } catch(e) {}
+}
+
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveToStorage, 600);
+}
+
+function setSaveStatus(msg, color) {
+  const dot = document.getElementById('saveDot');
+  const status = document.getElementById('saveStatus');
+  if (dot) dot.style.background = color || '#1D9E75';
+  if (status) status.textContent = msg;
+}
+
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+              || localStorage.getItem('ndp_datasets_v2')
+              || localStorage.getItem('ndp_datasets_v1');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      datasets = parsed.datasets || [];
+      idCounter = parsed.idCounter || datasets.length;
+      saveToStorage(); // migrate to new key
+      setSaveStatus('Restored from last session · ' + new Date().toLocaleTimeString());
+      return true;
+    }
+  } catch(e) {}
+  return false;
+}
+
+function resetToDefaults() {
+  if (!confirm('Reset everything back to the default datasets? Your current data will be lost.')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  datasets = [];
+  idCounter = 0;
+  loadPresets();
+  history = [JSON.stringify({ datasets, idCounter })];
+  historyIndex = 0;
+  render();
+  setSaveStatus('Reset to defaults');
+  saveToStorage();
+  updateUndoRedo();
+}
+
+function exportData() {
+  const json = JSON.stringify({ datasets, idCounter }, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ndp_data_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  setSaveStatus('Exported · ' + new Date().toLocaleTimeString());
+}
+
+function importData(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      if (!parsed.datasets) throw new Error('Invalid file');
+      snapshot();
+      datasets = parsed.datasets;
+      idCounter = parsed.idCounter || datasets.length;
+      render();
+      saveToStorage();
+      setSaveStatus('Imported from ' + file.name + ' · ' + new Date().toLocaleTimeString());
+      updateUndoRedo();
+    } catch(err) {
+      alert('Could not import: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  input.value = '';
+}
+
+function loadPresets() {
+  Object.entries(PRESET).forEach(([name, d]) => {
+    datasets.push({
+      id: idCounter++, name, checked: true, color: d.color, expanded: false,
+      subs: d.subs.map((s, i) => ({ id: i, ...s }))
+    });
+  });
+}
+
+function init() {
+  const restored = loadFromStorage();
+  if (!restored) {
+    loadPresets();
+    setSaveStatus('Default data loaded');
+    saveToStorage();
+  }
+  // seed initial history snapshot
+  history = [JSON.stringify({ datasets, idCounter })];
+  historyIndex = 0;
+  render();
+  updateUndoRedo();
+}
+
+function render() {
+  const list = document.getElementById('datasetList');
+  list.innerHTML = '';
+  datasets.forEach(ds => {
+    const checkedCount = ds.subs.filter(s => s.checked).length;
+    const div = document.createElement('div');
+    div.className = 'ds-row';
+    const idx = datasets.indexOf(ds);
+    const isFirst = idx === 0;
+    const isLast = idx === datasets.length - 1;
+    div.innerHTML = `
+      <div class="ds-header">
+        <input type="checkbox" ${ds.checked ? 'checked' : ''} onchange="toggleDs(${ds.id}, this.checked)">
+        <input class="ds-name-input" value="${ds.name}" onchange="renameDs(${ds.id}, this.value)">
+        <div class="color-wrap">
+          <div class="color-swatch" style="background:${ds.color}"></div>
+          <input type="color" value="${ds.color}" onchange="setColor(${ds.id}, this.value)">
+        </div>
+        <div class="reorder-btns">
+          <button class="reorder-btn" onclick="moveDs(${ds.id}, -1)" ${isFirst ? 'disabled' : ''} title="Move up">▲</button>
+          <button class="reorder-btn" onclick="moveDs(${ds.id}, 1)" ${isLast ? 'disabled' : ''} title="Move down">▼</button>
+        </div>
+        <button class="expand-btn" onclick="toggleExpand(${ds.id})">
+          <i class="ti ti-${ds.expanded ? 'chevron-up' : 'chevron-down'}"></i>
+          data (${checkedCount}/${ds.subs.length})
+        </button>
+        <button class="del-btn" onclick="deleteDs(${ds.id})">
+          <i class="ti ti-trash"></i> delete
+        </button>
+      </div>
+      <div class="sub-datasets ${ds.expanded ? 'open' : ''}" id="subs-${ds.id}">
+        ${ds.subs.map(sub => `
+          <div class="sub-row">
+            <input type="checkbox" class="sub-check" ${sub.checked ? 'checked' : ''} onchange="toggleSub(${ds.id}, ${sub.id}, this.checked)">
+            <div class="sub-info">
+              <input class="sub-label-input" value="${sub.label}" onchange="renameSubLabel(${ds.id}, ${sub.id}, this.value)" title="Click to rename">
+              <div class="sub-preview">${sub.data ? sub.data.split(',').slice(0,6).join(', ') + '...' : 'No data yet'}</div>
+              <textarea class="sub-textarea" placeholder="Paste comma-separated values here…" onchange="updateSubData(${ds.id}, ${sub.id}, this.value)">${sub.data}</textarea>
+            </div>
+            <button class="sub-del-btn" onclick="deleteSub(${ds.id}, ${sub.id})" title="Remove sub-dataset">
+              <i class="ti ti-x"></i>
+            </button>
+          </div>
+        `).join('')}
+        <button class="add-sub-btn" onclick="addSub(${ds.id})">
+          <i class="ti ti-plus"></i> Add sub-dataset
+        </button>
+      </div>
+    `;
+    list.appendChild(div);
+  });
+}
+
+function toggleDs(id, v) { snapshot(); find(id).checked = v; scheduleSave(); updateUndoRedo(); }
+function renameDs(id, v) { snapshot(); find(id).name = v; scheduleSave(); updateUndoRedo(); }
+function setColor(id, v) { snapshot(); find(id).color = v; render(); scheduleSave(); updateUndoRedo(); }
+function toggleExpand(id) { const d = find(id); d.expanded = !d.expanded; render(); scheduleSave(); }
+function deleteDs(id) { snapshot(); datasets = datasets.filter(d => d.id !== id); render(); scheduleSave(); updateUndoRedo(); }
+function toggleSub(dsId, subId, v) { snapshot(); findSub(dsId, subId).checked = v; scheduleSave(); updateUndoRedo(); }
+function updateSubData(dsId, subId, v) { snapshot(); findSub(dsId, subId).data = v.trim(); render(); scheduleSave(); updateUndoRedo(); }
+function deleteSub(dsId, subId) { snapshot(); const d = find(dsId); d.subs = d.subs.filter(s => s.id !== subId); render(); scheduleSave(); updateUndoRedo(); }
+function renameSubLabel(dsId, subId, v) { snapshot(); findSub(dsId, subId).label = v.trim() || 'Sub'; scheduleSave(); updateUndoRedo(); }
+
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); }
+});
+
+function addSub(dsId) {
+  snapshot();
+  const d = find(dsId);
+  const idx = d.subs.length;
+  d.subs.push({ id: Date.now(), label: SUB_LABELS[idx] || `Sub${idx+1}`, checked: true, data: '' });
+  d.expanded = true;
+  render();
+  scheduleSave();
+  updateUndoRedo();
+}
+
+function addDataset() {
+  snapshot();
+  const idx = datasets.length;
+  datasets.push({
+    id: idCounter++, name: 'C_new', checked: true,
+    color: DEFAULT_COLORS[idx % DEFAULT_COLORS.length],
+    expanded: true,
+    subs: SUB_LABELS.map((l, i) => ({ id: i, label: l, checked: false, data: '' }))
+  });
+  render();
+  scheduleSave();
+  updateUndoRedo();
+}
+
+function find(id) { return datasets.find(d => d.id === id); }
+function findSub(dsId, subId) { return find(dsId).subs.find(s => s.id === subId); }
+
+function parseData(str) {
+  return str.split(',').map(s => parseFloat(s.trim())).filter(v => !isNaN(v));
+}
+
+function normalPDF(x, mean, std) {
+  return (1 / (std * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * ((x - mean) / std) ** 2);
+}
+
+function renameSubLabel(dsId, subId, v) { findSub(dsId, subId).label = v.trim() || 'Sub'; scheduleSave(); }
+
+function runChart() {
+  const series = [];
+  datasets.forEach(ds => {
+    if (!ds.checked) return;
+    const checkedSubs = ds.subs.filter(sub => sub.checked);
+    if (checkedSubs.length === 0) return;
+    const allVals = [];
+    checkedSubs.forEach(sub => {
+      parseData(sub.data).forEach(v => allVals.push(v));
+    });
+    if (allVals.length < 2) return;
+    const mean = allVals.reduce((a, b) => a + b, 0) / allVals.length;
+    const std = Math.sqrt(allVals.reduce((a, b) => a + (b - mean) ** 2, 0) / allVals.length);
+    if (std === 0) return;
+    const subNames = checkedSubs.map(s => s.label).join('+');
+    series.push({ label: `${ds.name} (${subNames})`, color: ds.color, mean, std });
+  });
+
+  const chartCard = document.getElementById('chartCard');
+  const emptyCard = document.getElementById('emptyCard');
+
+  if (series.length === 0) {
+    chartCard.style.display = 'none';
+    emptyCard.style.display = 'block';
+    return;
+  }
+  emptyCard.style.display = 'none';
+  chartCard.style.display = 'block';
+
+  const xMin = Math.min(...series.map(s => s.mean - 3.5 * s.std));
+  const xMax = Math.max(...series.map(s => s.mean + 3.5 * s.std));
+  const pts = 400;
+  const step = (xMax - xMin) / (pts - 1);
+  const xVals = Array.from({ length: pts }, (_, i) => xMin + i * step);
+
+  const chartDatasets = series.map(s => ({
+    label: s.label,
+    data: xVals.map(x => ({ x, y: normalPDF(x, s.mean, s.std) })),
+    borderColor: s.color,
+    backgroundColor: 'transparent',
+    borderWidth: 2.5,
+    pointRadius: 0,
+    tension: 0.4
+  }));
+
+  if (chartInstance) { chartInstance.destroy(); }
+  const ctx = document.getElementById('mainChart').getContext('2d');
+  chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: { datasets: chartDatasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: i => `${i.dataset.label}: ${i.parsed.y.toFixed(4)}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'linear',
+          title: { display: true, text: 'Abnormal index', font: { size: 13 } },
+          ticks: { maxTicksLimit: 10, callback: v => parseFloat(v).toFixed(3) }
+        },
+        y: {
+          title: { display: true, text: 'Probability density', font: { size: 13 } },
+          ticks: { callback: v => parseFloat(v).toFixed(3) }
+        }
+      }
+    }
+  });
+
+  const leg = document.getElementById('legend');
+  leg.innerHTML = series.map(s => `
+    <div class="leg-item">
+      <div class="leg-swatch" style="background:${s.color}"></div>
+      <span>${s.label}: μ = ${s.mean.toFixed(4)}, σ = ${s.std.toFixed(4)}</span>
+    </div>
+  `).join('');
+}
+
+init();
+</script>
+</body>
+</html>
