@@ -350,11 +350,59 @@
     margin-top: 0.5rem;
   }
 
+  .chart-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+
   .chart-card-title {
     font-size: 14px;
     font-weight: 500;
     color: var(--text2);
-    margin-bottom: 1rem;
+  }
+
+  .export-img-btn {
+    padding: 6px 14px;
+    border-radius: var(--radius);
+    border: 0.5px solid var(--border2);
+    background: var(--bg2);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .export-img-btn:hover { background: var(--bg3); }
+
+  .stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 1rem;
+  }
+  .stats-table th {
+    text-align: left;
+    padding: 7px 10px;
+    background: var(--bg2);
+    color: var(--text2);
+    font-weight: 500;
+    border-bottom: 0.5px solid var(--border);
+  }
+  .stats-table td {
+    padding: 7px 10px;
+    border-bottom: 0.5px solid var(--border);
+    color: var(--text);
+  }
+  .stats-table tr:last-child td { border-bottom: none; }
+  .stats-table .color-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 6px;
+    vertical-align: middle;
   }
 
   #chartWrap {
@@ -481,9 +529,15 @@
   </div>
 
   <div id="chartCard" class="chart-card" style="display:none">
-    <div class="chart-card-title">Normal distributions — Abnormal index</div>
+    <div class="chart-card-header">
+      <div class="chart-card-title">Normal distributions — Abnormal index</div>
+      <button class="export-img-btn" onclick="exportPicture()">
+        <i class="ti ti-photo-down"></i> Export picture
+      </button>
+    </div>
     <div id="chartWrap"><canvas id="mainChart" role="img" aria-label="Normal distribution curves"></canvas></div>
     <div class="legend" id="legend"></div>
+    <div id="statsWrap" style="margin-top:1rem"></div>
   </div>
   <div id="emptyCard" class="msg-card" style="display:none">
     No data selected. Check at least one sub-dataset and press RUN.
@@ -769,7 +823,6 @@ function deleteDs(id) { snapshot(); datasets = datasets.filter(d => d.id !== id)
 function toggleSub(dsId, subId, v) { snapshot(); findSub(dsId, subId).checked = v; scheduleSave(); updateUndoRedo(); }
 function updateSubData(dsId, subId, v) { snapshot(); findSub(dsId, subId).data = v.trim(); render(); scheduleSave(); updateUndoRedo(); }
 function deleteSub(dsId, subId) { snapshot(); const d = find(dsId); d.subs = d.subs.filter(s => s.id !== subId); render(); scheduleSave(); updateUndoRedo(); }
-function renameSubLabel(dsId, subId, v) { snapshot(); findSub(dsId, subId).label = v.trim() || 'Sub'; scheduleSave(); updateUndoRedo(); }
 
 document.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
@@ -812,7 +865,7 @@ function normalPDF(x, mean, std) {
   return (1 / (std * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * ((x - mean) / std) ** 2);
 }
 
-function renameSubLabel(dsId, subId, v) { findSub(dsId, subId).label = v.trim() || 'Sub'; scheduleSave(); }
+function renameSubLabel(dsId, subId, v) { snapshot(); findSub(dsId, subId).label = v.trim() || 'Sub'; scheduleSave(); updateUndoRedo(); }
 
 function runChart() {
   const series = [];
@@ -829,7 +882,7 @@ function runChart() {
     const std = Math.sqrt(allVals.reduce((a, b) => a + (b - mean) ** 2, 0) / allVals.length);
     if (std === 0) return;
     const subNames = checkedSubs.map(s => s.label).join('+');
-    series.push({ label: `${ds.name} (${subNames})`, color: ds.color, mean, std });
+    series.push({ label: `${ds.name} (${subNames})`, color: ds.color, mean, std, n: allVals.length });
   });
 
   const chartCard = document.getElementById('chartCard');
@@ -842,6 +895,7 @@ function runChart() {
   }
   emptyCard.style.display = 'none';
   chartCard.style.display = 'block';
+  window._lastSeries = series;
 
   const xMin = Math.min(...series.map(s => s.mean - 3.5 * s.std));
   const xMax = Math.max(...series.map(s => s.mean + 3.5 * s.std));
@@ -896,6 +950,112 @@ function runChart() {
       <span>${s.label}: μ = ${s.mean.toFixed(4)}, σ = ${s.std.toFixed(4)}</span>
     </div>
   `).join('');
+
+  // Stats table
+  const statsWrap = document.getElementById('statsWrap');
+  statsWrap.innerHTML = `
+    <table class="stats-table">
+      <thead>
+        <tr>
+          <th>Dataset</th>
+          <th>Mean (μ)</th>
+          <th>Std Dev (σ)</th>
+          <th>N values</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${series.map(s => `
+          <tr>
+            <td><span class="color-dot" style="background:${s.color}"></span>${s.label}</td>
+            <td>${s.mean.toFixed(6)}</td>
+            <td>${s.std.toFixed(6)}</td>
+            <td>${s.n}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function exportPicture() {
+  const name = prompt('Enter a file name for the export:', 'normal_distribution_' + new Date().toISOString().slice(0,10));
+  if (name === null) return; // cancelled
+  const filename = (name.trim() || 'normal_distribution') + '.png';
+
+  // Draw chart + stats onto an offscreen canvas
+  const chartCanvas = document.getElementById('mainChart');
+  const series = window._lastSeries || [];
+
+  // Build rows text for stats
+  const statsLines = series.map(s =>
+    `${s.label}    μ = ${s.mean.toFixed(6)}    σ = ${s.std.toFixed(6)}    N = ${s.n}`
+  );
+  const rowH = 28;
+  const padding = 20;
+  const statsHeight = statsLines.length * rowH + padding * 2 + 36;
+
+  const exportCanvas = document.createElement('canvas');
+  exportCanvas.width = chartCanvas.width;
+  exportCanvas.height = chartCanvas.height + statsHeight;
+  const ctx2 = exportCanvas.getContext('2d');
+
+  // White background
+  ctx2.fillStyle = '#ffffff';
+  ctx2.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+
+  // Draw chart
+  ctx2.drawImage(chartCanvas, 0, 0);
+
+  // Draw stats table header
+  const tableY = chartCanvas.height + padding;
+  ctx2.fillStyle = '#f7f7f5';
+  ctx2.fillRect(0, chartCanvas.height, exportCanvas.width, statsHeight);
+  ctx2.fillStyle = '#1a1a18';
+  ctx2.font = 'bold 14px sans-serif';
+  ctx2.fillText('Statistics', padding, tableY + 16);
+
+  // Column headers
+  ctx2.font = '12px sans-serif';
+  ctx2.fillStyle = '#6b6b66';
+  ctx2.fillText('Dataset', padding, tableY + 38);
+  ctx2.fillText('Mean (μ)', 280, tableY + 38);
+  ctx2.fillText('Std Dev (σ)', 430, tableY + 38);
+  ctx2.fillText('N', 590, tableY + 38);
+
+  // Divider
+  ctx2.strokeStyle = '#e0e0e0';
+  ctx2.beginPath();
+  ctx2.moveTo(padding, tableY + 44);
+  ctx2.lineTo(exportCanvas.width - padding, tableY + 44);
+  ctx2.stroke();
+
+  // Rows
+  series.forEach((s, i) => {
+    const y = tableY + 44 + (i + 1) * rowH;
+    // color dot
+    ctx2.fillStyle = s.color;
+    ctx2.beginPath();
+    ctx2.arc(padding + 6, y - 4, 5, 0, Math.PI * 2);
+    ctx2.fill();
+    ctx2.fillStyle = '#1a1a18';
+    ctx2.font = '12px sans-serif';
+    ctx2.fillText(s.label, padding + 16, y);
+    ctx2.fillText(s.mean.toFixed(6), 280, y);
+    ctx2.fillText(s.std.toFixed(6), 430, y);
+    ctx2.fillText(s.n, 590, y);
+    // row divider
+    ctx2.strokeStyle = '#f0f0f0';
+    ctx2.beginPath();
+    ctx2.moveTo(padding, y + 8);
+    ctx2.lineTo(exportCanvas.width - padding, y + 8);
+    ctx2.stroke();
+  });
+
+  // Download
+  const a = document.createElement('a');
+  a.href = exportCanvas.toDataURL('image/png');
+  a.download = filename;
+  a.click();
 }
 
 init();
