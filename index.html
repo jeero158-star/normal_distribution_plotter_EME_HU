@@ -484,11 +484,53 @@
     gap: 4px;
   }
   .io-btn:hover { background: var(--bg2); color: var(--text); }
-    border: none;
-    text-decoration: underline;
-    padding: 0;
+
+  .axis-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 1rem;
+    padding: 12px 14px;
+    background: var(--bg);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    align-items: center;
   }
-  .reset-link:hover { color: var(--danger); }
+  .axis-controls label {
+    font-size: 12px;
+    color: var(--text2);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .axis-controls input[type=number] {
+    width: 72px;
+    padding: 4px 7px;
+    border-radius: var(--radius);
+    border: 0.5px solid var(--border2);
+    background: var(--bg2);
+    color: var(--text);
+    font-size: 12px;
+  }
+  .axis-controls input[type=number]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .axis-divider { color: var(--border2); font-size: 13px; }
+  .axis-section-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text2);
+    margin-right: 4px;
+    white-space: nowrap;
+  }
+  .axis-auto-btn {
+    padding: 4px 10px;
+    border-radius: var(--radius);
+    border: 0.5px solid var(--border);
+    background: none;
+    color: var(--text2);
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .axis-auto-btn:hover { background: var(--bg2); }
 </style>
 </head>
 <body>
@@ -510,6 +552,20 @@
   </div>
 
   <div class="datasets" id="datasetList"></div>
+
+  <div class="axis-controls">
+    <span class="axis-section-label">X axis (Abnormal index):</span>
+    <label>Min <input type="number" id="xMin" placeholder="auto" step="0.1"></label>
+    <span class="axis-divider">–</span>
+    <label>Max <input type="number" id="xMax" placeholder="auto" step="0.1"></label>
+    <button class="axis-auto-btn" onclick="resetAxis('x')">Auto</button>
+    <span class="axis-divider" style="margin:0 6px">|</span>
+    <span class="axis-section-label">Y axis (Probability density):</span>
+    <label>Min <input type="number" id="yMin" placeholder="auto" step="0.1"></label>
+    <span class="axis-divider">–</span>
+    <label>Max <input type="number" id="yMax" placeholder="auto" step="0.1"></label>
+    <button class="axis-auto-btn" onclick="resetAxis('y')">Auto</button>
+  </div>
 
   <div class="actions">
     <div class="undo-redo-bar">
@@ -867,6 +923,23 @@ function normalPDF(x, mean, std) {
 
 function renameSubLabel(dsId, subId, v) { snapshot(); findSub(dsId, subId).label = v.trim() || 'Sub'; scheduleSave(); updateUndoRedo(); }
 
+function getAxisVal(id) {
+  const el = document.getElementById(id);
+  if (!el || el.value.trim() === '') return null;
+  const v = parseFloat(el.value);
+  return isNaN(v) ? null : v;
+}
+
+function resetAxis(axis) {
+  if (axis === 'x') {
+    document.getElementById('xMin').value = '';
+    document.getElementById('xMax').value = '';
+  } else {
+    document.getElementById('yMin').value = '';
+    document.getElementById('yMax').value = '';
+  }
+}
+
 function runChart() {
   const series = [];
   datasets.forEach(ds => {
@@ -933,11 +1006,15 @@ function runChart() {
         x: {
           type: 'linear',
           title: { display: true, text: 'Abnormal index', font: { size: 13 } },
-          ticks: { maxTicksLimit: 10, callback: v => parseFloat(v).toFixed(3) }
+          ticks: { maxTicksLimit: 10, callback: v => parseFloat(v).toFixed(3) },
+          ...(getAxisVal('xMin') !== null ? { min: getAxisVal('xMin') } : {}),
+          ...(getAxisVal('xMax') !== null ? { max: getAxisVal('xMax') } : {})
         },
         y: {
           title: { display: true, text: 'Probability density', font: { size: 13 } },
-          ticks: { callback: v => parseFloat(v).toFixed(3) }
+          ticks: { callback: v => parseFloat(v).toFixed(3) },
+          ...(getAxisVal('yMin') !== null ? { min: getAxisVal('yMin') } : {}),
+          ...(getAxisVal('yMax') !== null ? { max: getAxisVal('yMax') } : {})
         }
       }
     }
