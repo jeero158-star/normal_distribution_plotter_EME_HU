@@ -288,6 +288,24 @@
   }
   .sub-del-btn:hover { color: var(--danger); }
 
+  .sub-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+  .clear-btn {
+    background: none;
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    color: var(--text2);
+    font-size: 12px;
+    padding: 4px 10px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+  }
+  .clear-btn.small { font-size: 11px; padding: 3px 8px; }
+  .clear-btn:hover:not(:disabled) { background: #FAEEDA; color: #854F0B; border-color: #BA7517; }
+  .clear-btn:disabled { opacity: 0.35; cursor: default; }
+
   .add-sub-btn {
     font-size: 12px;
     padding: 6px 12px;
@@ -723,6 +741,64 @@
   .tab-menu button:hover { background: var(--bg2); }
   .tab-menu button i { font-size: 16px; color: var(--text2); margin-top: 1px; }
   .tab-menu small { display: block; font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+  /* TXT import dialog */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: rgba(0,0,0,0.35);
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    width: min(720px, 100%);
+    max-height: calc(100vh - 32px);
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+  }
+  .modal-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 0.5px solid var(--border);
+    font-size: 15px; font-weight: 500;
+  }
+  .modal-body { padding: 14px 16px; overflow-y: auto; }
+  .modal-target { display: flex; flex-direction: column; gap: 8px; font-size: 13px; margin-bottom: 10px; }
+  .modal-target label { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .modal-target input[type=radio] { accent-color: var(--accent); }
+  .modal-input {
+    padding: 4px 8px; font-size: 13px;
+    border: 0.5px solid var(--border2); border-radius: 6px;
+    background: var(--bg2); color: var(--text);
+  }
+  .modal-summary { font-size: 13px; color: var(--text2); margin: 4px 0 6px; }
+  .modal-table-wrap { overflow-x: auto; }
+  .modal-table-wrap .stats-table { margin-top: 0; font-size: 12px; }
+  .modal-table-wrap td { vertical-align: top; }
+  .muted { color: var(--text3); }
+  .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+  .badge.upd { background: #E6F1FB; color: #185FA5; }
+  .badge.new { background: #E1F5EE; color: #0F6E56; }
+  .modal-note { font-size: 12px; color: var(--text3); margin-top: 10px; line-height: 1.5; }
+  .modal-foot {
+    display: flex; justify-content: flex-end; gap: 8px;
+    padding: 12px 16px;
+    border-top: 0.5px solid var(--border);
+  }
+  .modal-ok {
+    padding: 7px 20px; border: none; border-radius: var(--radius);
+    background: var(--accent); color: #fff; font-size: 13px; font-weight: 500;
+    cursor: pointer; display: flex; align-items: center; gap: 6px;
+  }
+  .modal-ok:hover { background: var(--accent-dark); }
 </style>
 </head>
 <body>
@@ -774,7 +850,11 @@
     <button class="io-btn" onclick="document.getElementById('importInput').click()" title="Import data from JSON file">
       <i class="ti ti-upload"></i> Import
     </button>
-    <input type="file" id="importInput" accept=".json" style="display:none" onchange="importData(this)">
+    <input type="file" id="importInput" accept=".json,.txt" style="display:none" onchange="importData(this)">
+    <button class="io-btn" onclick="document.getElementById('txtInput').click()" title="Import C0/BXL/BL/BM/BS data from a Notepad .txt file">
+      <i class="ti ti-file-text"></i> Import TXT
+    </button>
+    <input type="file" id="txtInput" accept=".txt,text/plain" style="display:none" onchange="openTxtImport(this)">
     <button class="reset-link" onclick="resetToDefaults()">Reset to defaults</button>
   </div>
 
@@ -824,6 +904,32 @@
   </div>
   <div id="emptyCard" class="msg-card" style="display:none">
     No data selected. Check at least one sub-dataset and press RUN.
+  </div>
+</div>
+
+<div class="modal-overlay" id="txtModal" onclick="if (event.target === this) closeTxtModal()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="txtModalTitle">
+    <div class="modal-head">
+      <span id="txtModalTitle">Import TXT</span>
+      <button class="tab-close" onclick="closeTxtModal()" title="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-target">
+        <label><input type="radio" name="txtTarget" value="current" checked onchange="renderTxtPreview()">
+          Into current tab <b id="txtCurTab"></b></label>
+        <label><input type="radio" name="txtTarget" value="new" onchange="renderTxtPreview()">
+          Into a new tab named
+          <input id="txtNewTabName" class="modal-input" onfocus="document.querySelector('input[name=txtTarget][value=new]').checked = true; renderTxtPreview()"></label>
+      </div>
+      <p class="modal-summary" id="txtSummary"></p>
+      <div class="modal-table-wrap"><table class="stats-table" id="txtPreview"></table></div>
+      <p class="modal-note">Names are matched ignoring brackets, ° and "Degree" — e.g. <b>C860Degree</b> → <b>C8(60°)</b>.
+        Values in matching sub-datasets are replaced. You can Undo after importing.</p>
+    </div>
+    <div class="modal-foot">
+      <button class="io-btn" onclick="closeTxtModal()">Cancel</button>
+      <button class="modal-ok" onclick="confirmTxtImport()"><i class="ti ti-check"></i> Import</button>
+    </div>
   </div>
 </div>
 
@@ -1082,6 +1188,7 @@ function exportData() {
 function importData(input) {
   const file = input.files[0];
   if (!file) return;
+  if (/\.txt$/i.test(file.name)) { openTxtImport(input); return; }
   const reader = new FileReader();
   reader.onload = e => {
     try {
@@ -1362,6 +1469,153 @@ function deleteNote(id) {
   scheduleSave();
 }
 
+// ---------- Import from TXT (Notepad) ----------
+// Expected format (blank lines are ignored):
+//   C0
+//   BXL:
+//   0.00066, 0.000517, ...
+//   BL:
+//   ...
+//   C860Degree        ← matched to "C8(60°)"
+let txtImport = null;   // { fileName, groups }
+
+function txtNumbers(str) {
+  return str.split(/[\s,;]+/).filter(s => s !== '').map(Number).filter(v => Number.isFinite(v));
+}
+
+function parseGroupsTxt(text) {
+  const groups = [];
+  let g = null, sub = null;
+  const isNumLine = l => /^[-+]?(\d|\.\d)/.test(l);
+  text.split(/\r?\n/).map(l => l.trim()).filter(l => l !== '').forEach(line => {
+    const m = line.match(/^([^:]+?)\s*:\s*(.*)$/);
+    if (isNumLine(line)) {
+      if (sub) sub.values.push(...txtNumbers(line));
+    } else if (m) {
+      if (!g) { g = { name: 'Dataset', subs: [] }; groups.push(g); }
+      sub = { label: m[1].trim(), values: txtNumbers(m[2]) };
+      g.subs.push(sub);
+    } else {
+      g = { name: line, subs: [] };
+      groups.push(g);
+      sub = null;
+    }
+  });
+  return groups.filter(gr => gr.subs.length);
+}
+
+// "C8(60°)", "C860Degree", "c8 60 deg" → "c860"
+function normName(n) {
+  return String(n).toLowerCase().replace(/degrees?|deg/g, '').replace(/[^a-z0-9]/g, '');
+}
+// "C860Degree" → "C8(60°)"; anything else stays as written
+function prettyName(n) {
+  const m = String(n).trim().match(/^(.*?\d)(\d{2,3})\s*deg(?:ree)?s?$/i);
+  return m ? `${m[1]}(${m[2]}°)` : String(n).trim();
+}
+
+function openTxtImport(input) {
+  const file = input.files[0];
+  input.value = '';
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const groups = parseGroupsTxt(e.target.result);
+    if (!groups.length) {
+      alert('Could not find any data in this file.\n\nExpected format:\nC0\nBXL:\n0.001, 0.002, ...\nBL:\n...');
+      return;
+    }
+    txtImport = { fileName: file.name, groups };
+    document.getElementById('txtModalTitle').textContent = 'Import TXT — ' + file.name;
+    document.getElementById('txtCurTab').textContent = '"' + activeTab().name + '"';
+    document.getElementById('txtNewTabName').value = file.name.replace(/\.txt$/i, '');
+    document.querySelector('input[name=txtTarget][value=current]').checked = true;
+    renderTxtPreview();
+    document.getElementById('txtModal').classList.add('open');
+  };
+  reader.readAsText(file);
+}
+
+function txtTarget() { return document.querySelector('input[name=txtTarget]:checked').value; }
+
+function renderTxtPreview() {
+  if (!txtImport) return;
+  const intoCurrent = txtTarget() === 'current';
+  let nUpdate = 0, nNew = 0;
+  const rows = txtImport.groups.map(g => {
+    const ds = intoCurrent ? datasets.find(d => normName(d.name) === normName(g.name)) : null;
+    const target = ds ? ds.name : prettyName(g.name);
+    let action;
+    if (ds) {
+      nUpdate++;
+      const replaces = g.subs.some(s => ds.subs.find(x => x.label.toLowerCase() === s.label.toLowerCase() && x.data));
+      action = `<span class="badge upd">${replaces ? 'Update · replaces values' : 'Fill'}</span>`;
+    } else {
+      nNew++;
+      action = '<span class="badge new">New dataset</span>';
+    }
+    const subs = g.subs.map(s => `${escapeHtml(s.label)} <span class="muted">(${s.values.length})</span>`).join(', ');
+    return `<tr><td>${escapeHtml(g.name)}</td><td>→ <b>${escapeHtml(target)}</b></td><td>${subs}</td><td>${action}</td></tr>`;
+  }).join('');
+  document.getElementById('txtPreview').innerHTML = `
+    <thead><tr><th>In file</th><th>Goes to</th><th>Sub-datasets (values)</th><th>Action</th></tr></thead>
+    <tbody>${rows}</tbody>`;
+  document.getElementById('txtSummary').textContent =
+    `${txtImport.groups.length} datasets found — ${nUpdate} will be updated, ${nNew} will be created.`;
+}
+
+function closeTxtModal() {
+  document.getElementById('txtModal').classList.remove('open');
+  txtImport = null;
+}
+
+function nextColor() {
+  const used = new Set(datasets.map(d => d.color.toLowerCase()));
+  return DEFAULT_COLORS.find(c => !used.has(c.toLowerCase())) || DEFAULT_COLORS[datasets.length % DEFAULT_COLORS.length];
+}
+
+function confirmTxtImport() {
+  if (!txtImport) return;
+  const { groups, fileName } = txtImport;
+  if (txtTarget() === 'new') {
+    syncToTab();
+    const name = document.getElementById('txtNewTabName').value.trim() || fileName.replace(/\.txt$/i, '');
+    const t = makeTab(name, []);
+    tabs.splice(tabs.findIndex(x => x.id === activeTabId) + 1, 0, t);
+    activeTabId = t.id;
+    loadActiveTab();
+  }
+  snapshot();
+  let updated = 0, created = 0;
+  groups.forEach(g => {
+    let ds = datasets.find(d => normName(d.name) === normName(g.name));
+    if (ds) {
+      updated++;
+    } else {
+      // New dataset: tick the same sub-datasets as the first existing dataset (or only the first one)
+      const ref = datasets[0];
+      ds = { id: idCounter++, name: prettyName(g.name), checked: true, color: nextColor(), expanded: false, subs: [] };
+      ds._checkedFrom = ref && ref.subs.some(s => s.checked) ? new Set(ref.subs.filter(s => s.checked).map(s => s.label.toLowerCase())) : null;
+      datasets.push(ds);
+      created++;
+    }
+    g.subs.forEach((s, i) => {
+      let sub = ds.subs.find(x => x.label.toLowerCase() === s.label.toLowerCase());
+      if (!sub) {
+        const checked = ds._checkedFrom ? ds._checkedFrom.has(s.label.toLowerCase()) : i === 0;
+        sub = { id: Math.max(-1, ...ds.subs.map(x => x.id)) + 1, label: s.label, checked, data: '' };
+        ds.subs.push(sub);
+      }
+      sub.data = s.values.join(',');
+    });
+    delete ds._checkedFrom;
+  });
+  closeTxtModal();
+  renderAll();
+  saveToStorage();
+  setSaveStatus(`Imported ${fileName}: ${updated} updated, ${created} new · ` + new Date().toLocaleTimeString());
+}
+
 function render() {
   const list = document.getElementById('datasetList');
   list.innerHTML = '';
@@ -1388,6 +1642,10 @@ function render() {
           <i class="ti ti-${ds.expanded ? 'chevron-up' : 'chevron-down'}"></i>
           data (${checkedCount}/${ds.subs.length})
         </button>
+        <button class="clear-btn" onclick="clearDs(${ds.id})" ${ds.subs.some(s => s.data) ? '' : 'disabled'}
+                title="Delete the data in all sub-datasets (BXL, BL, …) but keep them">
+          <i class="ti ti-eraser"></i> clear
+        </button>
         <button class="del-btn" onclick="deleteDs(${ds.id})">
           <i class="ti ti-trash"></i> delete
         </button>
@@ -1401,9 +1659,15 @@ function render() {
               <div class="sub-preview">${sub.data ? sub.data.split(',').slice(0,6).join(', ') + '...' : 'No data yet'}</div>
               <textarea class="sub-textarea" placeholder="Paste comma-separated values here…" onchange="updateSubData(${ds.id}, ${sub.id}, this.value)">${sub.data}</textarea>
             </div>
-            <button class="sub-del-btn" onclick="deleteSub(${ds.id}, ${sub.id})" title="Remove sub-dataset">
-              <i class="ti ti-x"></i>
-            </button>
+            <div class="sub-actions">
+              <button class="clear-btn small" onclick="clearSub(${ds.id}, ${sub.id})" ${sub.data ? '' : 'disabled'}
+                      title="Delete the data in ${sub.label} but keep ${sub.label}">
+                <i class="ti ti-eraser"></i> clear
+              </button>
+              <button class="sub-del-btn" onclick="deleteSub(${ds.id}, ${sub.id})" title="Remove sub-dataset">
+                <i class="ti ti-x"></i>
+              </button>
+            </div>
           </div>
         `).join('')}
         <button class="add-sub-btn" onclick="addSub(${ds.id})">
@@ -1422,9 +1686,23 @@ function toggleExpand(id) { const d = find(id); d.expanded = !d.expanded; render
 function deleteDs(id) { snapshot(); datasets = datasets.filter(d => d.id !== id); render(); scheduleSave(); updateUndoRedo(); }
 function toggleSub(dsId, subId, v) { snapshot(); findSub(dsId, subId).checked = v; scheduleSave(); updateUndoRedo(); }
 function updateSubData(dsId, subId, v) { snapshot(); findSub(dsId, subId).data = v.trim(); render(); scheduleSave(); updateUndoRedo(); }
+function clearSub(dsId, subId) {
+  const sub = findSub(dsId, subId);
+  if (!sub.data) return;
+  snapshot(); sub.data = ''; render(); scheduleSave(); updateUndoRedo();
+  setSaveStatus(`Cleared ${sub.label} data (Undo to restore)`);
+}
+function clearDs(id) {
+  const d = find(id);
+  if (!d.subs.some(s => s.data)) return;
+  if (!confirm(`Clear all data in ${d.name}?\n${d.subs.map(s => s.label).join(', ')} will stay, only their values are deleted. You can Undo this.`)) return;
+  snapshot(); d.subs.forEach(s => { s.data = ''; }); render(); scheduleSave(); updateUndoRedo();
+  setSaveStatus(`Cleared all data in ${d.name} (Undo to restore)`);
+}
 function deleteSub(dsId, subId) { snapshot(); const d = find(dsId); d.subs = d.subs.filter(s => s.id !== subId); render(); scheduleSave(); updateUndoRedo(); }
 
 document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('txtModal').classList.contains('open')) { closeTxtModal(); return; }
   if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
   if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); }
 });
