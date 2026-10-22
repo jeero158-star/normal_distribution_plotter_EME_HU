@@ -606,6 +606,123 @@
     line-height: 1.5;
   }
   .note-text:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .notes-tab-name { color: var(--accent); }
+
+  /* Chrome-like tabs */
+  .tab-strip {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    border-bottom: 1px solid var(--border2);
+    margin-bottom: 1rem;
+  }
+  .tab-list {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    overflow-x: auto;
+    min-width: 0;
+    margin-bottom: -1px;
+    scrollbar-width: thin;
+  }
+  .tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 6px 8px 12px;
+    min-width: 96px;
+    max-width: 210px;
+    flex-shrink: 0;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: 10px 10px 0 0;
+    color: var(--text2);
+    font-size: 13px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .tab:hover { background: var(--bg2); }
+  .tab.active {
+    background: var(--bg);
+    color: var(--text);
+    font-weight: 500;
+    border-color: var(--border2);
+    border-bottom: 1px solid var(--bg);
+  }
+  .tab.dragging { opacity: 0.4; }
+  .tab.drag-over { box-shadow: inset 2px 0 0 var(--accent); }
+  .tab-icon { font-size: 14px; color: var(--text3); flex-shrink: 0; }
+  .tab.active .tab-icon { color: var(--accent); }
+  .tab-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tab-close {
+    width: 20px; height: 20px;
+    border: none; border-radius: 50%;
+    background: none;
+    color: var(--text3);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+    line-height: 1;
+    padding: 0;
+    flex-shrink: 0;
+  }
+  .tab-close:hover { background: var(--bg3); color: var(--text); }
+  .tab-rename {
+    font: inherit;
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    padding: 1px 4px;
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+  }
+  .new-tab-wrap { position: relative; padding-bottom: 5px; flex-shrink: 0; }
+  .new-tab-btn {
+    width: 30px; height: 30px;
+    border: none; border-radius: 50%;
+    background: none;
+    color: var(--text2);
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .new-tab-btn:hover { background: var(--bg); color: var(--text); }
+  .tab-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 20;
+    width: 290px;
+    max-width: calc(100vw - 32px);
+    background: var(--bg);
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.14);
+    padding: 4px;
+  }
+  .tab-menu.open { display: block; }
+  .tab-menu button {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    width: 100%;
+    text-align: left;
+    padding: 8px 10px;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .tab-menu button:hover { background: var(--bg2); }
+  .tab-menu button i { font-size: 16px; color: var(--text2); margin-top: 1px; }
+  .tab-menu small { display: block; font-size: 11px; color: var(--text3); margin-top: 2px; }
 </style>
 </head>
 <body>
@@ -616,10 +733,27 @@
          placeholder="Short description…" onchange="setMeta('subtitle', this.value)" title="Click to edit the description">
   <p class="edit-hint"><i class="ti ti-pencil"></i> Click the title or description to edit</p>
 
+  <div class="tab-strip">
+    <div class="tab-list" id="tabList"></div>
+    <div class="new-tab-wrap">
+      <button class="new-tab-btn" onclick="toggleTabMenu(event)" title="New tab">+</button>
+      <div class="tab-menu" id="tabMenu">
+        <button onclick="addTab('copy')">
+          <i class="ti ti-copy"></i>
+          <span>Same layout as current tab<small>Same dataset names, colours and BXL/BL/BM/BS — data left empty</small></span>
+        </button>
+        <button onclick="addTab('blank')">
+          <i class="ti ti-file-plus"></i>
+          <span>Blank tab<small>Starts with one empty dataset</small></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div class="notes-card">
     <div class="notes-head" onclick="toggleNotes()">
       <i class="ti ti-notes"></i>
-      <span class="notes-head-title">Notes &amp; reminders</span>
+      <span class="notes-head-title">Notes &amp; reminders · <span id="notesTabName" class="notes-tab-name"></span></span>
       <span class="notes-count" id="notesCount"></span>
       <i class="ti ti-chevron-down" id="notesChevron"></i>
     </div>
@@ -648,15 +782,15 @@
 
   <div class="axis-controls">
     <span class="axis-section-label">X axis (Abnormal index):</span>
-    <label>Min <input type="number" id="xMin" placeholder="auto" step="0.1"></label>
+    <label>Min <input type="number" id="xMin" placeholder="auto" step="0.1" onchange="saveAxis()"></label>
     <span class="axis-divider">–</span>
-    <label>Max <input type="number" id="xMax" placeholder="auto" step="0.1"></label>
+    <label>Max <input type="number" id="xMax" placeholder="auto" step="0.1" onchange="saveAxis()"></label>
     <button class="axis-auto-btn" onclick="resetAxis('x')">Auto</button>
     <span class="axis-divider" style="margin:0 6px">|</span>
     <span class="axis-section-label">Y axis (Probability density):</span>
-    <label>Min <input type="number" id="yMin" placeholder="auto" step="0.1"></label>
+    <label>Min <input type="number" id="yMin" placeholder="auto" step="0.1" onchange="saveAxis()"></label>
     <span class="axis-divider">–</span>
-    <label>Max <input type="number" id="yMax" placeholder="auto" step="0.1"></label>
+    <label>Max <input type="number" id="yMax" placeholder="auto" step="0.1" onchange="saveAxis()"></label>
     <button class="axis-auto-btn" onclick="resetAxis('y')">Auto</button>
   </div>
 
@@ -679,7 +813,7 @@
 
   <div id="chartCard" class="chart-card" style="display:none">
     <div class="chart-card-header">
-      <div class="chart-card-title">Normal distributions — Abnormal index</div>
+      <div class="chart-card-title" id="chartTitle">Normal distributions</div>
       <button class="export-img-btn" onclick="exportPicture()">
         <i class="ti ti-photo-down"></i> Export picture
       </button>
@@ -741,64 +875,104 @@ const STORAGE_KEY = 'ndp_save';
 const DEFAULT_META = {
   title: 'Normal distribution plotter',
   subtitle: 'Add datasets, select sub-datasets, then press RUN to plot.',
-  notes: [],
   notesOpen: true
 };
-let meta = JSON.parse(JSON.stringify(DEFAULT_META));
+let meta = { ...DEFAULT_META };
+
+// ---------- Tabs: each tab is its own workspace (datasets, notes, axis range) ----------
+let tabs = [];
+let activeTabId = null;
+let tabIdCounter = 0;
+let dragTabId = null;
+const histories = {};   // per-tab undo/redo, kept in memory only
+
+// Working copy of the active tab
 let datasets = [];
 let idCounter = 0;
 let chartInstance = null;
 let saveTimer = null;
 
-// Undo/redo history
-let history = [];
-let historyIndex = -1;
+// Undo/redo stacks (of the active tab)
+let undoStack = [];
+let redoStack = [];
 const MAX_HISTORY = 50;
 
+function activeTab() { return tabs.find(t => t.id === activeTabId); }
+
+function emptyAxis() { return { xMin: '', xMax: '', yMin: '', yMax: '' }; }
+
+function makeTab(name, ds, opts = {}) {
+  return {
+    id: tabIdCounter++,
+    name,
+    datasets: ds,
+    idCounter: opts.idCounter ?? ds.length,
+    notes: opts.notes || [],
+    axis: opts.axis || emptyAxis(),
+    ran: false
+  };
+}
+
+function syncToTab() {
+  const t = activeTab();
+  if (!t) return;
+  t.datasets = datasets;
+  t.idCounter = idCounter;
+  histories[t.id] = { undo: undoStack, redo: redoStack };
+}
+
+function loadActiveTab() {
+  const t = activeTab();
+  datasets = t.datasets;
+  idCounter = t.idCounter;
+  const h = histories[t.id];
+  undoStack = h ? h.undo : [];
+  redoStack = h ? h.redo : [];
+  const ax = t.axis || emptyAxis();
+  ['xMin','xMax','yMin','yMax'].forEach(k => { document.getElementById(k).value = ax[k] ?? ''; });
+}
+
+function currentState() { return JSON.stringify({ datasets, idCounter }); }
+function applyState(s) { const st = JSON.parse(s); datasets = st.datasets; idCounter = st.idCounter; }
+
+// Call BEFORE changing data: remembers the state so it can be undone
 function snapshot() {
-  const state = JSON.stringify({ datasets, idCounter });
-  // drop any redo future
-  history = history.slice(0, historyIndex + 1);
-  history.push(state);
-  if (history.length > MAX_HISTORY) history.shift();
-  historyIndex = history.length - 1;
+  undoStack.push(currentState());
+  if (undoStack.length > MAX_HISTORY) undoStack.shift();
+  redoStack = [];
   updateUndoRedo();
 }
 
 function updateUndoRedo() {
   const u = document.getElementById('undoBtn');
   const r = document.getElementById('redoBtn');
-  if (u) u.disabled = historyIndex <= 0;
-  if (r) r.disabled = historyIndex >= history.length - 1;
+  if (u) u.disabled = undoStack.length === 0;
+  if (r) r.disabled = redoStack.length === 0;
 }
 
 function undo() {
-  if (historyIndex <= 0) return;
-  historyIndex--;
-  const state = JSON.parse(history[historyIndex]);
-  datasets = state.datasets;
-  idCounter = state.idCounter;
+  if (!undoStack.length) return;
+  redoStack.push(currentState());
+  applyState(undoStack.pop());
   render();
   scheduleSave();
   updateUndoRedo();
 }
 
 function redo() {
-  if (historyIndex >= history.length - 1) return;
-  historyIndex++;
-  const state = JSON.parse(history[historyIndex]);
-  datasets = state.datasets;
-  idCounter = state.idCounter;
+  if (!redoStack.length) return;
+  undoStack.push(currentState());
+  applyState(redoStack.pop());
   render();
   scheduleSave();
   updateUndoRedo();
 }
 
 function moveDs(id, dir) {
-  snapshot();
   const idx = datasets.findIndex(d => d.id === id);
   const newIdx = idx + dir;
   if (newIdx < 0 || newIdx >= datasets.length) return;
+  snapshot();
   const tmp = datasets[idx];
   datasets[idx] = datasets[newIdx];
   datasets[newIdx] = tmp;
@@ -806,15 +980,21 @@ function moveDs(id, dir) {
   scheduleSave();
 }
 
+function serialize() {
+  syncToTab();
+  return {
+    version: 3,
+    meta,
+    tabs: tabs.map(({ id, name, datasets, idCounter, notes, axis, ran }) => ({ id, name, datasets, idCounter, notes, axis, ran })),
+    activeTabId,
+    tabIdCounter
+  };
+}
+
 function saveToStorage() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ datasets, idCounter, meta }));
-    const dot = document.getElementById('saveDot');
-    const status = document.getElementById('saveStatus');
-    if (dot && status) {
-      dot.style.background = '#1D9E75';
-      status.textContent = 'Saved · ' + new Date().toLocaleTimeString();
-    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(serialize()));
+    setSaveStatus('Saved · ' + new Date().toLocaleTimeString());
   } catch(e) {}
 }
 
@@ -835,44 +1015,70 @@ function loadFromStorage() {
     const raw = localStorage.getItem(STORAGE_KEY)
               || localStorage.getItem('ndp_datasets_v2')
               || localStorage.getItem('ndp_datasets_v1');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      datasets = parsed.datasets || [];
-      idCounter = parsed.idCounter || datasets.length;
-      if (parsed.meta) meta = Object.assign({}, DEFAULT_META, parsed.meta);
-      saveToStorage(); // migrate to new key
-      setSaveStatus('Restored from last session · ' + new Date().toLocaleTimeString());
-      return true;
+    if (!raw) return false;
+    const parsed = JSON.parse(raw);
+    if (parsed.tabs && parsed.tabs.length) {
+      tabs = parsed.tabs.map(t => ({ notes: [], axis: emptyAxis(), ran: false, ...t }));
+      tabIdCounter = parsed.tabIdCounter ?? (Math.max(...tabs.map(t => t.id)) + 1);
+      activeTabId = tabs.some(t => t.id === parsed.activeTabId) ? parsed.activeTabId : tabs[0].id;
+    } else if (parsed.datasets) {
+      // Older single-page save → becomes the first tab
+      tabs = [makeTab('Waveform data', parsed.datasets, { idCounter: parsed.idCounter, notes: parsed.meta?.notes })];
+      activeTabId = tabs[0].id;
+    } else {
+      return false;
     }
-  } catch(e) {}
+    if (parsed.meta) {
+      meta = {
+        title: parsed.meta.title || DEFAULT_META.title,
+        subtitle: parsed.meta.subtitle || DEFAULT_META.subtitle,
+        notesOpen: parsed.meta.notesOpen ?? true
+      };
+    }
+    loadActiveTab();
+    return true;
+  } catch(e) { console.error(e); }
   return false;
 }
 
+function presetDatasets() {
+  return Object.entries(PRESET).map(([name, d], i) => ({
+    id: i, name, checked: true, color: d.color, expanded: false,
+    subs: d.subs.map((s, j) => ({ id: j, ...s }))
+  }));
+}
+
+function blankDataset(id, name, color) {
+  return {
+    id, name, checked: true, color, expanded: true,
+    subs: SUB_LABELS.map((l, i) => ({ id: i, label: l, checked: false, data: '' }))
+  };
+}
+
 function resetToDefaults() {
-  if (!confirm('Reset the datasets back to the defaults? Your current data will be lost (title and notes are kept).')) return;
-  localStorage.removeItem(STORAGE_KEY);
-  datasets = [];
-  idCounter = 0;
-  loadPresets();
-  history = [JSON.stringify({ datasets, idCounter })];
-  historyIndex = 0;
+  const t = activeTab();
+  if (!confirm(`Reset the datasets in tab "${t.name}" back to the default data?\nOther tabs and notes are kept, and you can Undo this.`)) return;
+  snapshot();
+  datasets = presetDatasets();
+  idCounter = datasets.length;
   render();
-  setSaveStatus('Reset to defaults');
   saveToStorage();
+  setSaveStatus('Tab reset to defaults');
   updateUndoRedo();
 }
 
 function exportData() {
-  const json = JSON.stringify({ datasets, idCounter, meta }, null, 2);
+  const json = JSON.stringify(serialize(), null, 2);
   const blob = new Blob([json], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'ndp_data_' + new Date().toISOString().slice(0,10) + '.json';
   a.click();
   URL.revokeObjectURL(a.href);
-  setSaveStatus('Exported · ' + new Date().toLocaleTimeString());
+  setSaveStatus('Exported all tabs · ' + new Date().toLocaleTimeString());
 }
 
+// Imported tabs are ADDED next to your current tabs (nothing is overwritten)
 function importData(input) {
   const file = input.files[0];
   if (!file) return;
@@ -880,15 +1086,22 @@ function importData(input) {
   reader.onload = e => {
     try {
       const parsed = JSON.parse(e.target.result);
-      if (!parsed.datasets) throw new Error('Invalid file');
-      snapshot();
-      datasets = parsed.datasets;
-      idCounter = parsed.idCounter || datasets.length;
-      if (parsed.meta) { meta = Object.assign({}, DEFAULT_META, parsed.meta); renderMeta(); }
-      render();
+      const base = file.name.replace(/\.json$/i, '');
+      let added;
+      if (parsed.tabs && parsed.tabs.length) {
+        added = parsed.tabs.map(t => makeTab(t.name || base, t.datasets || [], { idCounter: t.idCounter, notes: t.notes, axis: t.axis }));
+      } else if (parsed.datasets) {
+        added = [makeTab(base, parsed.datasets, { idCounter: parsed.idCounter, notes: parsed.meta?.notes })];
+      } else {
+        throw new Error('Invalid file');
+      }
+      syncToTab();
+      tabs.push(...added);
+      activeTabId = added[0].id;
+      loadActiveTab();
+      renderAll();
       saveToStorage();
-      setSaveStatus('Imported from ' + file.name + ' · ' + new Date().toLocaleTimeString());
-      updateUndoRedo();
+      setSaveStatus(`Imported ${added.length} tab${added.length > 1 ? 's' : ''} from ${file.name} · ` + new Date().toLocaleTimeString());
     } catch(err) {
       alert('Could not import: ' + err.message);
     }
@@ -897,28 +1110,179 @@ function importData(input) {
   input.value = '';
 }
 
-function loadPresets() {
-  Object.entries(PRESET).forEach(([name, d]) => {
-    datasets.push({
-      id: idCounter++, name, checked: true, color: d.color, expanded: false,
-      subs: d.subs.map((s, i) => ({ id: i, ...s }))
-    });
-  });
-}
-
 function init() {
   const restored = loadFromStorage();
   if (!restored) {
-    loadPresets();
-    setSaveStatus('Default data loaded');
-    saveToStorage();
+    tabs = [makeTab('Waveform data', presetDatasets())];
+    activeTabId = tabs[0].id;
+    loadActiveTab();
   }
-  // seed initial history snapshot
-  history = [JSON.stringify({ datasets, idCounter })];
-  historyIndex = 0;
+  saveToStorage();
+  setSaveStatus(restored ? 'Restored from last session · ' + new Date().toLocaleTimeString() : 'Default data loaded');
+  renderAll();
+}
+
+function renderAll() {
+  renderTabs();
   renderMeta();
   render();
   updateUndoRedo();
+  const t = activeTab();
+  document.getElementById('chartCard').style.display = 'none';
+  document.getElementById('emptyCard').style.display = 'none';
+  if (t.ran) { try { runChart(); } catch(e) { console.error(e); } }
+}
+
+// ---------- Tab bar ----------
+function switchTab(id) {
+  if (id === activeTabId) return;
+  syncToTab();
+  activeTabId = id;
+  loadActiveTab();
+  renderAll();
+  scheduleSave();
+}
+
+function addTab(mode) {
+  closeTabMenu();
+  syncToTab();
+  const cur = activeTab();
+  let ds;
+  if (mode === 'copy' && cur) {
+    // Same dataset names, colours and sub-dataset labels — data left empty
+    ds = cur.datasets.map((d, i) => ({
+      id: i, name: d.name, checked: d.checked, color: d.color, expanded: i === 0,
+      subs: d.subs.map((s, j) => ({ id: j, label: s.label, checked: s.checked, data: '' }))
+    }));
+  } else {
+    ds = [blankDataset(0, 'C0', DEFAULT_COLORS[0])];
+  }
+  const t = makeTab('New tab', ds);
+  const idx = tabs.findIndex(x => x.id === activeTabId);
+  tabs.splice(idx + 1, 0, t);          // opens right next to the current tab, like Chrome
+  activeTabId = t.id;
+  loadActiveTab();
+  renderAll();
+  scheduleSave();
+  startRenameTab(t.id);                // type the name straight away (e.g. "FFT")
+}
+
+function closeTab(id) {
+  if (tabs.length <= 1) return;
+  const t = tabs.find(x => x.id === id);
+  const hasContent = t.datasets.some(d => d.subs.some(s => s.data)) || t.notes.some(n => n.text);
+  if (hasContent && !confirm(`Close tab "${t.name}"?\nIts data and notes will be deleted. (Use Export first if you want a backup.)`)) return;
+  syncToTab();
+  const idx = tabs.findIndex(x => x.id === id);
+  tabs.splice(idx, 1);
+  delete histories[id];
+  if (id === activeTabId) {
+    activeTabId = tabs[Math.min(idx, tabs.length - 1)].id;
+    loadActiveTab();
+    renderAll();
+  } else {
+    renderTabs();
+  }
+  scheduleSave();
+}
+
+function startRenameTab(id) {
+  const span = document.getElementById('tabName-' + id);
+  if (!span) return;
+  const t = tabs.find(x => x.id === id);
+  const tabEl = span.closest('.tab');
+  if (tabEl) tabEl.draggable = false;
+  const input = document.createElement('input');
+  input.className = 'tab-rename';
+  input.value = t.name;
+  span.replaceWith(input);
+  input.focus();
+  input.select();
+  let done = false;
+  const commit = save => {
+    if (done) return;
+    done = true;
+    if (save) t.name = input.value.trim() || t.name;
+    renderTabs();
+    renderNotes();
+    updateChartTitle();
+    scheduleSave();
+  };
+  input.addEventListener('keydown', e => {
+    e.stopPropagation();
+    if (e.key === 'Enter') commit(true);
+    if (e.key === 'Escape') commit(false);
+  });
+  input.addEventListener('blur', () => commit(true));
+  input.addEventListener('click', e => e.stopPropagation());
+  input.addEventListener('dblclick', e => e.stopPropagation());
+}
+
+function renderTabs() {
+  const list = document.getElementById('tabList');
+  list.innerHTML = tabs.map(t => `
+    <div class="tab ${t.id === activeTabId ? 'active' : ''}" draggable="true" data-id="${t.id}"
+         onclick="switchTab(${t.id})" ondblclick="startRenameTab(${t.id})"
+         title="${escapeHtml(t.name)} — double-click to rename, drag to reorder">
+      <i class="ti ti-chart-line tab-icon"></i>
+      <span class="tab-name" id="tabName-${t.id}">${escapeHtml(t.name)}</span>
+      ${tabs.length > 1 ? `<button class="tab-close" onclick="event.stopPropagation(); closeTab(${t.id})" title="Close tab">&times;</button>` : ''}
+    </div>`).join('');
+
+  list.querySelectorAll('.tab').forEach(el => {
+    el.addEventListener('dragstart', e => {
+      dragTabId = +el.dataset.id;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', el.dataset.id);
+      el.classList.add('dragging');
+    });
+    el.addEventListener('dragend', () => {
+      el.classList.remove('dragging');
+      list.querySelectorAll('.drag-over').forEach(x => x.classList.remove('drag-over'));
+      dragTabId = null;
+    });
+    el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('drag-over'); });
+    el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+    el.addEventListener('drop', e => {
+      e.preventDefault();
+      const targetId = +el.dataset.id;
+      if (dragTabId === null || dragTabId === targetId) return;
+      const from = tabs.findIndex(t => t.id === dragTabId);
+      const [moved] = tabs.splice(from, 1);
+      const to = tabs.findIndex(t => t.id === targetId);
+      tabs.splice(from <= to ? to + 1 : to, 0, moved);
+      dragTabId = null;
+      renderTabs();
+      scheduleSave();
+    });
+  });
+
+  const active = list.querySelector('.tab.active');
+  if (active) active.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+}
+
+function toggleTabMenu(e) {
+  e.stopPropagation();
+  const menu = document.getElementById('tabMenu');
+  menu.classList.toggle('open');
+  menu.style.left = '0'; menu.style.right = 'auto';
+  if (menu.classList.contains('open') && menu.getBoundingClientRect().right > window.innerWidth - 8) {
+    menu.style.left = 'auto'; menu.style.right = '0';
+  }
+}
+function closeTabMenu() { document.getElementById('tabMenu').classList.remove('open'); }
+document.addEventListener('click', e => { if (!e.target.closest('.new-tab-wrap')) closeTabMenu(); });
+
+function saveAxis() {
+  const t = activeTab();
+  t.axis = {};
+  ['xMin','xMax','yMin','yMax'].forEach(k => { t.axis[k] = document.getElementById(k).value; });
+  scheduleSave();
+}
+
+function updateChartTitle() {
+  const el = document.getElementById('chartTitle');
+  if (el) el.textContent = 'Normal distributions — ' + activeTab().name;
 }
 
 // ---------- Title, description & notes ----------
@@ -946,14 +1310,13 @@ function toggleNotes() {
 }
 
 function renderNotes() {
-  const body = document.getElementById('notesBody');
-  const chev = document.getElementById('notesChevron');
-  const count = document.getElementById('notesCount');
-  body.classList.toggle('open', !!meta.notesOpen);
-  chev.className = 'ti ti-chevron-' + (meta.notesOpen ? 'up' : 'down');
-  count.textContent = meta.notes.length ? `${meta.notes.length} note${meta.notes.length > 1 ? 's' : ''}` : 'none yet';
-  const list = document.getElementById('notesList');
-  list.innerHTML = meta.notes.map(n => `
+  const t = activeTab();
+  const notes = t.notes;
+  document.getElementById('notesTabName').textContent = t.name;
+  document.getElementById('notesBody').classList.toggle('open', !!meta.notesOpen);
+  document.getElementById('notesChevron').className = 'ti ti-chevron-' + (meta.notesOpen ? 'up' : 'down');
+  document.getElementById('notesCount').textContent = notes.length ? `${notes.length} note${notes.length > 1 ? 's' : ''}` : 'none yet';
+  document.getElementById('notesList').innerHTML = notes.map(n => `
     <div class="note-item">
       <div class="note-top">
         <input class="note-topic" value="${escapeHtml(n.topic)}" placeholder="Topic…"
@@ -973,7 +1336,7 @@ function stamp() {
 }
 
 function addNote() {
-  meta.notes.push({ id: Date.now(), topic: 'New topic', text: '', updated: stamp() });
+  activeTab().notes.push({ id: Date.now(), topic: 'New topic', text: '', updated: stamp() });
   meta.notesOpen = true;
   renderNotes();
   scheduleSave();
@@ -983,7 +1346,7 @@ function addNote() {
 }
 
 function updateNote(id, key, value) {
-  const n = meta.notes.find(n => n.id === id);
+  const n = activeTab().notes.find(n => n.id === id);
   if (!n) return;
   n[key] = value;
   n.updated = stamp();
@@ -993,7 +1356,8 @@ function updateNote(id, key, value) {
 
 function deleteNote(id) {
   if (!confirm('Delete this note?')) return;
-  meta.notes = meta.notes.filter(n => n.id !== id);
+  const t = activeTab();
+  t.notes = t.notes.filter(n => n.id !== id);
   renderNotes();
   scheduleSave();
 }
@@ -1118,9 +1482,13 @@ function resetAxis(axis) {
     document.getElementById('yMin').value = '';
     document.getElementById('yMax').value = '';
   }
+  saveAxis();
 }
 
 function runChart() {
+  activeTab().ran = true;
+  updateChartTitle();
+  scheduleSave();
   const series = [];
   datasets.forEach(ds => {
     if (!ds.checked) return;
@@ -1235,7 +1603,7 @@ function runChart() {
 }
 
 function exportPicture() {
-  const name = prompt('Enter a file name for the export:', 'normal_distribution_' + new Date().toISOString().slice(0,10));
+  const name = prompt('Enter a file name for the export:', 'normal_distribution_' + activeTab().name.replace(/[^\w\-]+/g, '_') + '_' + new Date().toISOString().slice(0,10));
   if (name === null) return; // cancelled
   const filename = (name.trim() || 'normal_distribution') + '.png';
 
