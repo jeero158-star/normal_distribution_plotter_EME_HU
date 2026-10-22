@@ -531,12 +531,105 @@
     cursor: pointer;
   }
   .axis-auto-btn:hover { background: var(--bg2); }
+
+  /* Editable title / subtitle */
+  .title-input, .subtitle-input {
+    display: block;
+    width: 100%;
+    border: 0.5px solid transparent;
+    background: transparent;
+    color: var(--text);
+    font-family: inherit;
+    outline: none;
+    border-radius: 6px;
+    padding: 2px 6px;
+    margin-left: -6px;
+  }
+  .title-input { font-size: 22px; font-weight: 500; margin-bottom: 0.25rem; }
+  .subtitle-input { font-size: 14px; color: var(--text2); margin-bottom: 1.25rem; }
+  .title-input:hover, .subtitle-input:hover { background: var(--bg2); }
+  .title-input:focus, .subtitle-input:focus { background: var(--bg); border-color: var(--border2); }
+  .edit-hint { font-size: 11px; color: var(--text3); margin: -0.9rem 0 1.25rem; }
+
+  /* Notes / reminders */
+  .notes-card {
+    background: var(--bg);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 12px 14px;
+    margin-bottom: 1rem;
+  }
+  .notes-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .notes-head-title { font-size: 14px; font-weight: 500; flex: 1; }
+  .notes-count { font-size: 12px; color: var(--text3); }
+  .notes-body { display: none; flex-direction: column; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 0.5px solid var(--border); }
+  .notes-body.open { display: flex; }
+  .note-item {
+    background: var(--bg2);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 10px;
+  }
+  .note-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .note-topic {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 500;
+    outline: none;
+    padding: 2px 5px;
+    border-radius: 4px;
+  }
+  .note-topic:hover { background: var(--bg3); }
+  .note-topic:focus { background: var(--bg); }
+  .note-date { font-size: 11px; color: var(--text3); white-space: nowrap; }
+  .note-text {
+    width: 100%;
+    font-size: 13px;
+    font-family: inherit;
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 0.5px solid var(--border2);
+    background: var(--bg);
+    color: var(--text);
+    resize: vertical;
+    min-height: 54px;
+    line-height: 1.5;
+  }
+  .note-text:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 </style>
 </head>
 <body>
 <div class="container">
-  <h1>Normal distribution plotter</h1>
-  <p class="subtitle">Add datasets, select sub-datasets, then press RUN to plot.</p>
+  <input class="title-input" id="titleInput" value="Normal distribution plotter"
+         placeholder="Topic of this work…" onchange="setMeta('title', this.value)" title="Click to edit the topic">
+  <input class="subtitle-input" id="subtitleInput" value="Add datasets, select sub-datasets, then press RUN to plot."
+         placeholder="Short description…" onchange="setMeta('subtitle', this.value)" title="Click to edit the description">
+  <p class="edit-hint"><i class="ti ti-pencil"></i> Click the title or description to edit</p>
+
+  <div class="notes-card">
+    <div class="notes-head" onclick="toggleNotes()">
+      <i class="ti ti-notes"></i>
+      <span class="notes-head-title">Notes &amp; reminders</span>
+      <span class="notes-count" id="notesCount"></span>
+      <i class="ti ti-chevron-down" id="notesChevron"></i>
+    </div>
+    <div class="notes-body" id="notesBody">
+      <div id="notesList" style="display:flex;flex-direction:column;gap:8px"></div>
+      <button class="add-sub-btn" onclick="addNote()">
+        <i class="ti ti-plus"></i> Add topic / note
+      </button>
+    </div>
+  </div>
 
   <div class="save-bar">
     <div class="save-dot" id="saveDot"></div>
@@ -645,6 +738,13 @@ const PRESET = {
 };
 
 const STORAGE_KEY = 'ndp_save';
+const DEFAULT_META = {
+  title: 'Normal distribution plotter',
+  subtitle: 'Add datasets, select sub-datasets, then press RUN to plot.',
+  notes: [],
+  notesOpen: true
+};
+let meta = JSON.parse(JSON.stringify(DEFAULT_META));
 let datasets = [];
 let idCounter = 0;
 let chartInstance = null;
@@ -708,7 +808,7 @@ function moveDs(id, dir) {
 
 function saveToStorage() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ datasets, idCounter }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ datasets, idCounter, meta }));
     const dot = document.getElementById('saveDot');
     const status = document.getElementById('saveStatus');
     if (dot && status) {
@@ -739,6 +839,7 @@ function loadFromStorage() {
       const parsed = JSON.parse(raw);
       datasets = parsed.datasets || [];
       idCounter = parsed.idCounter || datasets.length;
+      if (parsed.meta) meta = Object.assign({}, DEFAULT_META, parsed.meta);
       saveToStorage(); // migrate to new key
       setSaveStatus('Restored from last session · ' + new Date().toLocaleTimeString());
       return true;
@@ -748,7 +849,7 @@ function loadFromStorage() {
 }
 
 function resetToDefaults() {
-  if (!confirm('Reset everything back to the default datasets? Your current data will be lost.')) return;
+  if (!confirm('Reset the datasets back to the defaults? Your current data will be lost (title and notes are kept).')) return;
   localStorage.removeItem(STORAGE_KEY);
   datasets = [];
   idCounter = 0;
@@ -762,7 +863,7 @@ function resetToDefaults() {
 }
 
 function exportData() {
-  const json = JSON.stringify({ datasets, idCounter }, null, 2);
+  const json = JSON.stringify({ datasets, idCounter, meta }, null, 2);
   const blob = new Blob([json], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -783,6 +884,7 @@ function importData(input) {
       snapshot();
       datasets = parsed.datasets;
       idCounter = parsed.idCounter || datasets.length;
+      if (parsed.meta) { meta = Object.assign({}, DEFAULT_META, parsed.meta); renderMeta(); }
       render();
       saveToStorage();
       setSaveStatus('Imported from ' + file.name + ' · ' + new Date().toLocaleTimeString());
@@ -814,8 +916,86 @@ function init() {
   // seed initial history snapshot
   history = [JSON.stringify({ datasets, idCounter })];
   historyIndex = 0;
+  renderMeta();
   render();
   updateUndoRedo();
+}
+
+// ---------- Title, description & notes ----------
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+function setMeta(key, value) {
+  meta[key] = value.trim() || DEFAULT_META[key];
+  renderMeta();
+  scheduleSave();
+}
+
+function renderMeta() {
+  document.getElementById('titleInput').value = meta.title;
+  document.getElementById('subtitleInput').value = meta.subtitle;
+  document.title = meta.title;
+  renderNotes();
+}
+
+function toggleNotes() {
+  meta.notesOpen = !meta.notesOpen;
+  renderNotes();
+  scheduleSave();
+}
+
+function renderNotes() {
+  const body = document.getElementById('notesBody');
+  const chev = document.getElementById('notesChevron');
+  const count = document.getElementById('notesCount');
+  body.classList.toggle('open', !!meta.notesOpen);
+  chev.className = 'ti ti-chevron-' + (meta.notesOpen ? 'up' : 'down');
+  count.textContent = meta.notes.length ? `${meta.notes.length} note${meta.notes.length > 1 ? 's' : ''}` : 'none yet';
+  const list = document.getElementById('notesList');
+  list.innerHTML = meta.notes.map(n => `
+    <div class="note-item">
+      <div class="note-top">
+        <input class="note-topic" value="${escapeHtml(n.topic)}" placeholder="Topic…"
+               onchange="updateNote(${n.id}, 'topic', this.value)">
+        <span class="note-date">${escapeHtml(n.updated)}</span>
+        <button class="sub-del-btn" onclick="deleteNote(${n.id})" title="Delete note"><i class="ti ti-x"></i></button>
+      </div>
+      <textarea class="note-text" placeholder="Write what you want to remember next time…"
+                onchange="updateNote(${n.id}, 'text', this.value)">${escapeHtml(n.text)}</textarea>
+    </div>
+  `).join('');
+}
+
+function stamp() {
+  const d = new Date();
+  return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function addNote() {
+  meta.notes.push({ id: Date.now(), topic: 'New topic', text: '', updated: stamp() });
+  meta.notesOpen = true;
+  renderNotes();
+  scheduleSave();
+  const inputs = document.querySelectorAll('.note-topic');
+  const last = inputs[inputs.length - 1];
+  if (last) { last.focus(); last.select(); }
+}
+
+function updateNote(id, key, value) {
+  const n = meta.notes.find(n => n.id === id);
+  if (!n) return;
+  n[key] = value;
+  n.updated = stamp();
+  renderNotes();
+  scheduleSave();
+}
+
+function deleteNote(id) {
+  if (!confirm('Delete this note?')) return;
+  meta.notes = meta.notes.filter(n => n.id !== id);
+  renderNotes();
+  scheduleSave();
 }
 
 function render() {
